@@ -34,29 +34,30 @@ if "theme_mode" not in st.session_state:
 # Apply Custom Theme CSS
 apply_theme(st.session_state["theme_mode"])
 
-# Sidebar Controls
-st.sidebar.title("📁 Smart File Analyzer")
+# Main Page Header & Top-Right Theme Selector
+head_col1, head_col2 = st.columns([3, 1])
 
-# Theme Switcher Option
-st.sidebar.subheader("🎨 Appearance Theme")
-theme_choice = st.sidebar.selectbox(
-    "Select Theme Mode:",
-    ["Dark", "Light", "System"],
-    index=["Dark", "Light", "System"].index(st.session_state["theme_mode"])
-)
-if theme_choice != st.session_state["theme_mode"]:
-    st.session_state["theme_mode"] = theme_choice
-    st.rerun()
+with head_col1:
+    st.markdown("""
+    <div class="app-header">
+        <div class="app-title">📁 Smart File Analyzer</div>
+        <div class="app-subtitle">Multi-File Processing • SHA-256 Hashing • AI Insights • Complex ML • System Telemetry</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
+with head_col2:
+    st.markdown("<div style='padding-top: 5px;'></div>", unsafe_allow_html=True)
+    theme_choice = st.selectbox(
+        "🎨 Appearance Theme:",
+        ["Dark", "Light", "System"],
+        index=["Dark", "Light", "System"].index(st.session_state["theme_mode"])
+    )
+    if theme_choice != st.session_state["theme_mode"]:
+        st.session_state["theme_mode"] = theme_choice
+        st.rerun()
 
-# Header Banner
-st.markdown("""
-<div class="app-header">
-    <div class="app-title">📁 Smart File Analyzer</div>
-    <div class="app-subtitle">Multi-File Processing • SHA-256 Hashing • AI Insights • Complex ML • System Telemetry</div>
-</div>
-""", unsafe_allow_html=True)
+# Sidebar Title
+st.sidebar.title("📁 Navigation")
 
 # ==============================================================================
 # MANDATORY AUTHENTICATION GATEKEEPER
