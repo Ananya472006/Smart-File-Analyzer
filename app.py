@@ -1,12 +1,9 @@
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from utils.file_analyzer import (
-    analyze_uploaded_files, detect_duplicates, get_largest_files, convert_size
-)
-from utils.system_info import get_complete_system_info
 
-# Page Configuration
+# Set Page Config FIRST
 st.set_page_config(
     page_title="Smart File Analyzer",
     page_icon="📁",
@@ -14,76 +11,141 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize Session State for Navigation
+# Import Utilities
+from utils.theme_css import apply_theme
+from utils.auth_db import (
+    register_user, verify_user, log_file_analysis, get_user_history
+)
+from utils.file_analyzer import (
+    analyze_uploaded_files, detect_duplicates, get_largest_files, convert_size
+)
+from utils.system_info import get_complete_system_info
+from utils.ai_engine import generate_ai_file_insights
+from utils.ml_engine import run_ml_anomaly_detection, run_ml_storage_clustering
+
+# Initialize Session State
+if "auth_user" not in st.session_state:
+    st.session_state["auth_user"] = None
 if "nav_page" not in st.session_state:
     st.session_state["nav_page"] = "🏠 Home"
+if "theme_mode" not in st.session_state:
+    st.session_state["theme_mode"] = "Dark"
 
-# Sidebar Navigation
+# Apply Custom Theme CSS
+apply_theme(st.session_state["theme_mode"])
+
+# Sidebar Controls
 st.sidebar.title("📁 Navigation")
+
+# Theme Switcher Option
+st.sidebar.subheader("🎨 Appearance Theme")
+theme_choice = st.sidebar.selectbox(
+    "Select Theme Mode:",
+    ["Dark", "Light", "System"],
+    index=["Dark", "Light", "System"].index(st.session_state["theme_mode"])
+)
+if theme_choice != st.session_state["theme_mode"]:
+    st.session_state["theme_mode"] = theme_choice
+    st.rerun()
+
+st.sidebar.markdown("---")
+
+# User Authentication Badge
+if st.session_state["auth_user"]:
+    st.sidebar.markdown(f'<div class="user-badge">👤 Logged in: {st.session_state["auth_user"]["username"]}</div>', unsafe_allow_html=True)
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state["auth_user"] = None
+        st.rerun()
+else:
+    st.sidebar.info("🔒 Guest Mode. Login to save audit history.")
+
+st.sidebar.markdown("---")
+
+# Sidebar Page Navigation
+nav_options = [
+    "🏠 Home",
+    "📂 File Analyzer",
+    "🤖 AI & ML Intelligence Engine",
+    "💻 System Information",
+    "📜 Database History Log",
+    "🔐 Login / Register",
+    "ℹ️ About"
+]
+
 page_selection = st.sidebar.radio(
     "Select Page:",
-    ["🏠 Home", "📂 File Analyzer", "💻 System Information", "ℹ️ About"],
-    index=["🏠 Home", "📂 File Analyzer", "💻 System Information", "ℹ️ About"].index(st.session_state["nav_page"])
+    nav_options,
+    index=nav_options.index(st.session_state["nav_page"]) if st.session_state["nav_page"] in nav_options else 0
 )
 
 st.session_state["nav_page"] = page_selection
 
+# Header Banner
+user_name_str = st.session_state["auth_user"]["username"] if st.session_state["auth_user"] else "Guest"
+st.markdown(f"""
+<div class="app-header">
+    <div class="app-title">📁 Smart File Analyzer</div>
+    <div class="app-subtitle">Multi-File Processing • SHA-256 Hashing • AI Insights • Complex ML • System Telemetry</div>
+</div>
+""", unsafe_allow_html=True)
+
 # ==============================================================================
-# PAGE 1: HOME
+# PAGE: HOME
 # ==============================================================================
 if st.session_state["nav_page"] == "🏠 Home":
-    st.title("📁 Smart File Analyzer")
-    st.markdown("### *Analyze your files, discover storage insights, and identify duplicate or large files.*")
-    st.markdown("---")
-
-    # Three Main Feature Cards
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div style="background-color: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155;">
-            <h4>📊 Analyze Files</h4>
-            <p>Upload multiple files to automatically extract sizes, extensions, categories, and visual insights.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with col2:
-        st.markdown("""
-        <div style="background-color: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155;">
-            <h4>🔁 Find Duplicates</h4>
-            <p>Cryptographically detect exact duplicate files across your uploads using SHA-256 hashing.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with col3:
-        st.markdown("""
-        <div style="background-color: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155;">
-            <h4>💻 System Information</h4>
-            <p>Inspect real-time CPU, RAM, and Disk metrics of the machine hosting Streamlit.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
+    st.markdown(f"### Welcome back, **{user_name_str}**! 👋")
+    st.markdown("Explore intelligent storage analytics, cryptographic hashing, machine learning clustering, and machine health.")
     st.markdown("<br>", unsafe_allow_html=True)
-    st.subheader("⚡ How It Works")
-    st.info("📌 **Workflow:** Upload Files ➔ Process Metadata ➔ Analyze Storage & Hashes ➔ Visualize Insights")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚀 Launch File Analyzer", type="primary", use_container_width=True):
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="card-icon">📂</div>
+            <div class="card-title">File Analyzer</div>
+            <div class="card-desc">Process multiple file formats, extract metadata, and run cryptographic SHA-256 duplicate detection.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="card-icon">🤖</div>
+            <div class="card-title">AI & ML Engine</div>
+            <div class="card-desc">Machine Learning IsolationForest anomaly detection, K-Means clustering, and AI storage recommendations.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c3:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="card-icon">💻</div>
+            <div class="card-title">System Info</div>
+            <div class="card-desc">Inspect real-time CPU, Memory (RAM), Disk partitions, and OS telemetry from the host machine.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c4:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="card-icon">🗄️</div>
+            <div class="card-title">SQL Audit Logs</div>
+            <div class="card-desc">Persistent user login authentication and SQLite database file analysis history.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    if st.button("🚀 Start Analyzing Files Now", type="primary", use_container_width=True):
         st.session_state["nav_page"] = "📂 File Analyzer"
         st.rerun()
 
 # ==============================================================================
-# PAGE 2: FILE ANALYZER
+# PAGE: FILE ANALYZER
 # ==============================================================================
 elif st.session_state["nav_page"] == "📂 File Analyzer":
-    st.title("📂 File Analyzer")
-    st.markdown("Upload files below to compute metadata, identify duplicate files, and explore storage distributions.")
+    st.title("📂 Multi-File Analyzer & Hashing Engine")
 
-    # Top Upload & Control Buttons
     c_left, c_right = st.columns([3, 1])
     with c_left:
         uploaded_files = st.file_uploader(
-            "Select one or multiple files to analyze:",
+            "Upload files (CSV, Excel, PDF, Images, Code, ZIP, etc.):",
             accept_multiple_files=True,
             key="file_uploader"
         )
@@ -91,229 +153,258 @@ elif st.session_state["nav_page"] == "📂 File Analyzer":
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🗑️ Clear Analysis", use_container_width=True):
             st.session_state.pop("file_uploader", None)
+            st.session_state.pop("df_analysis", None)
             st.rerun()
 
     if uploaded_files:
-        # Backend Processing
-        with st.spinner("Processing file metadata and calculating SHA-256 hashes..."):
+        with st.spinner("Calculating file sizes, categories, and SHA-256 hashes..."):
             df_files = analyze_uploaded_files(uploaded_files)
+            st.session_state["df_analysis"] = df_files
+
+            # Automatically log to Database if logged in
+            if st.session_state["auth_user"]:
+                log_file_analysis(st.session_state["auth_user"]["username"], df_files)
 
         if not df_files.empty:
-            # Filtering Options Section
-            with st.expander("🔍 Filter Uploaded Files", expanded=False):
-                f_col1, f_col2, f_col3 = st.columns(3)
-                
-                with f_col1:
+            # Filters
+            with st.expander("🔍 Filter Results", expanded=False):
+                f1, f2, f3 = st.columns(3)
+                with f1:
                     available_types = ["All"] + sorted(df_files["Type"].unique().tolist())
-                    selected_type = st.selectbox("Filter by Category:", available_types)
-                
-                min_size_val = float(df_files["Size (KB)"].min())
+                    selected_type = st.selectbox("Category:", available_types)
                 max_size_val = float(df_files["Size (KB)"].max())
-                
-                with f_col2:
-                    min_kb = st.number_input("Minimum Size (KB):", min_value=0.0, max_value=max_size_val, value=0.0)
-                with f_col3:
-                    max_kb = st.number_input("Maximum Size (KB):", min_value=min_kb, max_value=max_size_val if max_size_val > 0 else 1000.0, value=max_size_val if max_size_val > 0 else 1000.0)
+                with f2:
+                    min_kb = st.number_input("Min Size (KB):", min_value=0.0, max_value=max_size_val, value=0.0)
+                with f3:
+                    max_kb = st.number_input("Max Size (KB):", min_value=min_kb, max_value=max_size_val if max_size_val > 0 else 1000.0, value=max_size_val if max_size_val > 0 else 1000.0)
 
-            # Apply Filters
             filtered_df = df_files.copy()
             if selected_type != "All":
                 filtered_df = filtered_df[filtered_df["Type"] == selected_type]
             filtered_df = filtered_df[(filtered_df["Size (KB)"] >= min_kb) & (filtered_df["Size (KB)"] <= max_kb)]
 
-            # Summary Metrics Banners
-            total_files = len(filtered_df)
-            total_bytes = filtered_df["Size (Bytes)"].sum()
-            total_storage_str = convert_size(total_bytes)
-            num_types = filtered_df["Type"].nunique()
-            
+            # Summary Metrics
             duplicates_df = detect_duplicates(filtered_df)
-            num_duplicates = len(duplicates_df) if not duplicates_df.empty else 0
-
-            st.markdown("### 📊 Summary Metrics")
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total Files", total_files)
-            m2.metric("Total Storage", total_storage_str)
-            m3.metric("Number of File Types", num_types)
-            m4.metric("Duplicate Files", num_duplicates)
+            m1.metric("Total Files", len(filtered_df))
+            m2.metric("Total Storage", convert_size(filtered_df["Size (Bytes)"].sum()))
+            m3.metric("File Types", filtered_df["Type"].nunique())
+            m4.metric("Duplicate Files", len(duplicates_df) if not duplicates_df.empty else 0)
 
             st.markdown("---")
-            st.subheader("📑 File Analysis Table")
+            st.subheader("📋 File Metadata Dataframe")
             display_cols = ["File Name", "Extension", "Type", "Size (KB)", "Size (MB)", "SHA-256"]
             st.dataframe(filtered_df[display_cols], use_container_width=True, hide_index=True)
 
             st.markdown("---")
-            
-            # Duplicate Files Section
-            st.subheader("🔁 Duplicate Files")
+            st.subheader("🔁 Duplicate Files Detection (SHA-256 Hashing)")
             if not duplicates_df.empty:
-                st.warning(f"Found {len(duplicates_df)} sets of duplicate files!")
+                st.warning(f"Identified {len(duplicates_df)} duplicate cluster(s)!")
                 st.dataframe(duplicates_df, use_container_width=True, hide_index=True)
             else:
                 st.success("No duplicate files found.")
 
             st.markdown("---")
-            
-            # Largest Files Section
-            st.subheader("📦 Largest Files")
-            largest_df = get_largest_files(filtered_df, top_n=10)
-            st.dataframe(largest_df, use_container_width=True, hide_index=True)
+            st.subheader("📦 Top 10 Largest Files")
+            st.dataframe(get_largest_files(filtered_df, top_n=10), use_container_width=True, hide_index=True)
 
             st.markdown("---")
-            
-            # Interactive Charts Section
-            st.subheader("📈 Visual Insights & Charts")
+            st.subheader("📈 Storage Visualizations")
             ch1, ch2 = st.columns(2)
-
             with ch1:
-                st.markdown("#### Chart 1: File Type Distribution")
-                type_counts = filtered_df["Type"].value_counts().reset_index()
-                type_counts.columns = ["File Type", "Number of Files"]
-                fig1 = px.bar(
-                    type_counts,
-                    x="File Type",
-                    y="Number of Files",
-                    color="File Type",
-                    text_auto=True,
-                    template="plotly_dark"
-                )
-                fig1.update_layout(margin=dict(l=10, r=10, t=30, b=10))
+                tc = filtered_df["Type"].value_counts().reset_index()
+                tc.columns = ["File Type", "Count"]
+                fig1 = px.bar(tc, x="File Type", y="Count", color="File Type", text_auto=True, title="File Type Distribution", template="plotly_dark")
                 st.plotly_chart(fig1, use_container_width=True)
-
             with ch2:
-                st.markdown("#### Chart 2: Storage by File Type")
-                storage_df = filtered_df.groupby("Type")["Size (MB)"].sum().reset_index()
-                storage_df.columns = ["File Type", "Total Storage (MB)"]
-                fig2 = px.bar(
-                    storage_df,
-                    x="File Type",
-                    y="Total Storage (MB)",
-                    color="File Type",
-                    text_auto=".2f",
-                    template="plotly_dark"
-                )
-                fig2.update_layout(margin=dict(l=10, r=10, t=30, b=10))
+                stg = filtered_df.groupby("Type")["Size (MB)"].sum().reset_index()
+                stg.columns = ["File Type", "Storage (MB)"]
+                fig2 = px.bar(stg, x="File Type", y="Storage (MB)", color="File Type", text_auto=".2f", title="Storage by File Type (MB)", template="plotly_dark")
                 st.plotly_chart(fig2, use_container_width=True)
-
-            st.markdown("#### Chart 3: Largest Files Overview")
-            top_10 = filtered_df.sort_values(by="Size (MB)", ascending=True).tail(10)
-            fig3 = px.bar(
-                top_10,
-                x="Size (MB)",
-                y="File Name",
-                orientation="h",
-                color="Type",
-                text_auto=".2f",
-                title="Top 10 Largest Files (MB)",
-                template="plotly_dark"
-            )
-            fig3.update_layout(margin=dict(l=10, r=10, t=30, b=10))
-            st.plotly_chart(fig3, use_container_width=True)
-
-        else:
-            st.info("No files matched the selected filters.")
     else:
-        st.info("📁 Please upload one or more files above to begin analysis.")
+        st.info("Upload files above to run file metadata analysis.")
 
 # ==============================================================================
-# PAGE 3: SYSTEM INFORMATION (MANDATORY PAGE)
+# PAGE: AI & ML INTELLIGENCE ENGINE
+# ==============================================================================
+elif st.session_state["nav_page"] == "🤖 AI & ML Intelligence Engine":
+    st.title("🤖 AI Insights & Complex Machine Learning Engine")
+
+    df_current = st.session_state.get("df_analysis", None)
+    
+    if df_current is not None and not df_current.empty:
+        duplicates_df = detect_duplicates(df_current)
+
+        tab_ai, tab_ml_anomaly, tab_ml_cluster = st.tabs([
+            "🧠 AI Storage Advisory",
+            "🛡️ ML Anomaly Detection (IsolationForest)",
+            "📊 ML Storage Clustering (K-Means)"
+        ])
+
+        with tab_ai:
+            st.subheader("🧠 AI-Powered Smart Insights")
+            
+            with st.expander("🔑 Optional AI API Settings", expanded=False):
+                api_key = st.text_input("Enter OpenAI / Gemini API Key (Optional):", type="password")
+                st.caption("If no API key is entered, the app uses built-in AI NLP heuristics.")
+
+            ai_results = generate_ai_file_insights(df_current, duplicates_df, api_key=api_key)
+
+            a1, a2 = st.columns([1, 3])
+            with a1:
+                st.metric("Storage Health Index", f"{ai_results['health_score']}/100")
+                st.caption(f"Status: **{ai_results['status']}**")
+            with a2:
+                st.markdown(f"""
+                <div class="ai-box">
+                    <h4>🤖 AI Summary</h4>
+                    <p>{ai_results['summary']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("#### 💡 AI Smart Recommendations:")
+            for rec in ai_results["recommendations"]:
+                st.markdown(f"- {rec}")
+
+        with tab_ml_anomaly:
+            st.subheader("🛡️ Machine Learning Anomaly Detection")
+            st.markdown("Uses **IsolationForest** unsupervised ML algorithm to flag abnormal file sizes and extension patterns.")
+            
+            contam = st.slider("Anomaly Sensitivity Threshold:", 0.05, 0.30, 0.10, 0.05)
+            df_anomaly, fig_anom = run_ml_anomaly_detection(df_current, contamination=contam)
+            
+            if fig_anom:
+                st.plotly_chart(fig_anom, use_container_width=True)
+                st.dataframe(df_anomaly[["File Name", "Type", "Size (MB)", "Is_Anomaly"]], use_container_width=True, hide_index=True)
+
+        with tab_ml_cluster:
+            st.subheader("📊 Machine Learning Storage Clustering")
+            st.markdown("Uses **K-Means Clustering** algorithm to automatically group uploaded files into smart clusters.")
+            
+            k_val = st.slider("Number of Clusters (k):", 2, 5, 3)
+            df_clustered, fig_cluster = run_ml_storage_clustering(df_current, n_clusters=k_val)
+            
+            if fig_cluster:
+                st.plotly_chart(fig_cluster, use_container_width=True)
+                st.dataframe(df_clustered[["File Name", "Type", "Size (MB)", "Cluster_Label"]], use_container_width=True, hide_index=True)
+    else:
+        st.warning("Please upload files in the '📂 File Analyzer' page first to run AI & ML engines.")
+
+# ==============================================================================
+# PAGE: SYSTEM INFORMATION
 # ==============================================================================
 elif st.session_state["nav_page"] == "💻 System Information":
-    st.title("💻 System Information")
-    st.markdown("Real-time telemetry and hardware specs of the machine running Streamlit.")
-
+    st.title("💻 System Information Telemetry")
     if st.button("🔄 Refresh System Information"):
         st.rerun()
 
     sys_info = get_complete_system_info()
-    os_info = sys_info["os"]
-    cpu_info = sys_info["cpu"]
-    mem_info = sys_info["memory"]
-    disk_info = sys_info["disk"]
+    os_i, cpu_i, mem_i, disk_i = sys_info["os"], sys_info["cpu"], sys_info["memory"], sys_info["disk"]
 
-    # Visual Progress Indicators Banner
-    st.markdown("### ⚡ Live System Resource Indicators")
     p1, p2, p3 = st.columns(3)
-    
     with p1:
-        st.write(f"**CPU Usage:** {cpu_info['CPU Usage (%)']}%")
-        st.progress(min(cpu_info['CPU Usage (%)'] / 100.0, 1.0))
-        
+        st.write(f"**CPU Usage:** {cpu_i['CPU Usage (%)']}%")
+        st.progress(min(cpu_i['CPU Usage (%)'] / 100.0, 1.0))
     with p2:
-        st.write(f"**RAM Usage:** {mem_info['RAM Usage (%)']}%")
-        st.progress(min(mem_info['RAM Usage (%)'] / 100.0, 1.0))
-        
+        st.write(f"**RAM Usage:** {mem_i['RAM Usage (%)']}%")
+        st.progress(min(mem_i['RAM Usage (%)'] / 100.0, 1.0))
     with p3:
-        st.write(f"**Disk Usage:** {disk_info['Disk Usage (%)']}%")
-        st.progress(min(disk_info['Disk Usage (%)'] / 100.0, 1.0))
+        st.write(f"**Disk Usage:** {disk_i['Disk Usage (%)']}%")
+        st.progress(min(disk_i['Disk Usage (%)'] / 100.0, 1.0))
 
     st.markdown("---")
-
     col_os, col_cpu = st.columns(2)
     with col_os:
         st.subheader("🖥️ Operating System")
-        st.write(f"**Operating System:** {os_info['Operating System']}")
-        st.write(f"**OS Version:** {os_info['OS Version']}")
-        st.write(f"**Machine:** {os_info['Machine']}")
-        st.write(f"**Architecture:** {os_info['Architecture']}")
-        st.write(f"**Processor:** {os_info['Processor']}")
-        st.write(f"**Python Version:** {os_info['Python Version']}")
-
+        st.write(f"**OS:** {os_i['Operating System']} ({os_i['OS Release']})")
+        st.write(f"**Architecture:** {os_i['Architecture']}")
+        st.write(f"**Processor:** {os_i['Processor']}")
+        st.write(f"**Python Version:** {os_i['Python Version']}")
     with col_cpu:
-        st.subheader("⚡ CPU Details")
-        st.write(f"**Physical Cores:** {cpu_info['Physical Cores']}")
-        st.write(f"**Logical Cores:** {cpu_info['Logical Cores']}")
-        st.write(f"**CPU Usage:** {cpu_info['CPU Usage (%)']}%")
-        st.write(f"**CPU Frequency:** {cpu_info['CPU Frequency']}")
+        st.subheader("⚡ CPU Specs")
+        st.write(f"**Physical Cores:** {cpu_i['Physical Cores']}")
+        st.write(f"**Logical Cores:** {cpu_i['Logical Cores']}")
+        st.write(f"**CPU Usage:** {cpu_i['CPU Usage (%)']}%")
+        st.write(f"**Frequency:** {cpu_i['CPU Frequency']}")
 
     st.markdown("---")
-
     col_mem, col_disk = st.columns(2)
     with col_mem:
-        st.subheader("🧠 Memory (RAM)")
-        st.write(f"**Total RAM:** {mem_info['Total RAM (GB)']} GB")
-        st.write(f"**Used RAM:** {mem_info['Used RAM (GB)']} GB")
-        st.write(f"**Available RAM:** {mem_info['Available RAM (GB)']} GB")
-        st.write(f"**RAM Usage Percentage:** {mem_info['RAM Usage (%)']}%")
-
+        st.subheader("🧠 RAM Memory")
+        st.write(f"**Total RAM:** {mem_i['Total RAM (GB)']} GB")
+        st.write(f"**Used RAM:** {mem_i['Used RAM (GB)']} GB")
+        st.write(f"**Available RAM:** {mem_i['Available RAM (GB)']} GB")
     with col_disk:
-        st.subheader("💾 Disk Partition Space")
-        st.write(f"**Mountpoint:** {disk_info['Mountpoint']}")
-        st.write(f"**Total Disk Space:** {disk_info['Total Disk Space (GB)']} GB")
-        st.write(f"**Used Disk Space:** {disk_info['Used Disk Space (GB)']} GB")
-        st.write(f"**Free Disk Space:** {disk_info['Free Disk Space (GB)']} GB")
-        st.write(f"**Disk Usage Percentage:** {disk_info['Disk Usage (%)']}%")
+        st.subheader("💾 Disk Partition")
+        st.write(f"**Mount:** {disk_i['Mountpoint']}")
+        st.write(f"**Total Disk:** {disk_i['Total Disk Space (GB)']} GB")
+        st.write(f"**Free Disk:** {disk_i['Free Disk Space (GB)']} GB")
 
 # ==============================================================================
-# PAGE 4: ABOUT
+# PAGE: DATABASE HISTORY LOG
+# ==============================================================================
+elif st.session_state["nav_page"] == "📜 Database History Log":
+    st.title("📜 SQLite Database File Audit Logs")
+
+    if st.session_state["auth_user"]:
+        user_name = st.session_state["auth_user"]["username"]
+        st.markdown(f"Displaying persistent database records for user: **{user_name}**")
+        
+        hist_df = get_user_history(user_name)
+        if not hist_df.empty:
+            st.dataframe(hist_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No past file analysis history found in database.")
+    else:
+        st.warning("Please Log In via '🔐 Login / Register' page to view persistent database analysis logs.")
+
+# ==============================================================================
+# PAGE: LOGIN / REGISTER
+# ==============================================================================
+elif st.session_state["nav_page"] == "🔐 Login / Register":
+    st.title("🔐 Authentication Portal")
+
+    auth_mode = st.radio("Choose Action:", ["Login", "Register New User"], horizontal=True)
+
+    if auth_mode == "Login":
+        st.subheader("User Login")
+        l_user = st.text_input("Username:")
+        l_pass = st.text_input("Password:", type="password")
+        if st.button("🔑 Log In", type="primary"):
+            success, res = verify_user(l_user, l_pass)
+            if success:
+                st.session_state["auth_user"] = res
+                st.success(f"Welcome back, {res['username']}!")
+                st.session_state["nav_page"] = "🏠 Home"
+                st.rerun()
+            else:
+                st.error(res)
+    else:
+        st.subheader("Register New Account")
+        r_user = st.text_input("Choose Username:")
+        r_email = st.text_input("Email Address:")
+        r_pass = st.text_input("Choose Password:", type="password")
+        if st.button("📝 Register Account", type="primary"):
+            success, msg = register_user(r_user, r_email, r_pass)
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
+
+# ==============================================================================
+# PAGE: ABOUT
 # ==============================================================================
 elif st.session_state["nav_page"] == "ℹ️ About":
     st.title("ℹ️ About Smart File Analyzer")
-    
     st.markdown("""
-    ### **Application**
-    **Smart File Analyzer**
+    ### **Smart File Analyzer (Enterprise Edition)**
+    A functional, feature-packed Streamlit application integrating file metadata analysis, cryptographic SHA-256 duplicate detection, AI storage insights, complex Machine Learning anomaly detection, user authentication, SQLite database logging, and cloud deployment readiness.
 
-    ### **Purpose**
-    A Streamlit-based application for analyzing uploaded files and understanding storage usage.
-
-    ### **Features**
-    - 📁 Multi-file upload support
-    - 📑 File metadata extraction & analysis
-    - 🏷️ Automatic file type classification
-    - 🔁 SHA-256 cryptographic duplicate detection
-    - 📦 Top 10 largest file identification
-    - 📈 Dynamic Plotly chart visualizations
-    - 💻 Live system-level machine information monitoring
-
-    ### **Technologies**
-    - Python 3
-    - Streamlit
-    - Pandas
-    - Plotly
-    - psutil
-
-    ---
-    
-    > *"Developed as a functional Streamlit application demonstrating backend processing and system-level information retrieval."*
+    ### **Technologies Included:**
+    - **UI & Themes**: Streamlit, Custom Glassmorphism CSS (Light, Dark, System Modes)
+    - **Data & Charts**: Pandas, NumPy, Plotly Express
+    - **Database & Auth**: SQLite3, SHA-256 Password Hashing & Audit Logs
+    - **AI & ML**: Scikit-Learn (IsolationForest, KMeans), Built-in AI Advisory Engine
+    - **System Telemetry**: psutil, platform
+    - **Cloud Deployment**: Procfile, .streamlit/config.toml ready for Heroku / Render / Streamlit Cloud
     """)
