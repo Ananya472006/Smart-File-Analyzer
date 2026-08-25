@@ -35,7 +35,7 @@ if "theme_mode" not in st.session_state:
 apply_theme(st.session_state["theme_mode"])
 
 # Sidebar Controls
-st.sidebar.title("📁 Navigation")
+st.sidebar.title("📁 Smart File Analyzer")
 
 # Theme Switcher Option
 st.sidebar.subheader("🎨 Appearance Theme")
@@ -50,25 +50,82 @@ if theme_choice != st.session_state["theme_mode"]:
 
 st.sidebar.markdown("---")
 
-# User Authentication Badge
-if st.session_state["auth_user"]:
-    st.sidebar.markdown(f'<div class="user-badge">👤 Logged in: {st.session_state["auth_user"]["username"]}</div>', unsafe_allow_html=True)
-    if st.sidebar.button("🚪 Logout"):
-        st.session_state["auth_user"] = None
-        st.rerun()
-else:
-    st.sidebar.info("🔒 Guest Mode. Login to save audit history.")
+# Header Banner
+st.markdown("""
+<div class="app-header">
+    <div class="app-title">📁 Smart File Analyzer</div>
+    <div class="app-subtitle">Multi-File Processing • SHA-256 Hashing • AI Insights • Complex ML • System Telemetry</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ==============================================================================
+# MANDATORY AUTHENTICATION GATEKEEPER
+# ==============================================================================
+if st.session_state["auth_user"] is None:
+    st.sidebar.warning("🔒 Authentication Required")
+    st.sidebar.info("Please log in or register on the main panel to unlock the application.")
+
+    st.title("🔐 Authentication Required")
+    st.markdown("### You must log in or create an account to access Smart File Analyzer.")
+    
+    auth_tab1, auth_tab2 = st.tabs(["🔑 Log In", "📝 Register New Account"])
+
+    with auth_tab1:
+        st.subheader("Sign In to Your Account")
+        l_user = st.text_input("Username:", key="login_username")
+        l_pass = st.text_input("Password:", type="password", key="login_password")
+        
+        if st.button("🔑 Log In", type="primary", use_container_width=True):
+            if l_user and l_pass:
+                success, res = verify_user(l_user, l_pass)
+                if success:
+                    st.session_state["auth_user"] = res
+                    st.success(f"Welcome back, {res['username']}! Unlocking application...")
+                    st.session_state["nav_page"] = "🏠 Home"
+                    st.rerun()
+                else:
+                    st.error(res)
+            else:
+                st.warning("Please enter both username and password.")
+
+    with auth_tab2:
+        st.subheader("Create a New Account")
+        r_user = st.text_input("Choose Username:", key="reg_username")
+        r_email = st.text_input("Email Address:", key="reg_email")
+        r_pass = st.text_input("Choose Password:", type="password", key="reg_password")
+        
+        if st.button("📝 Register Account", type="primary", use_container_width=True):
+            if r_user and r_email and r_pass:
+                success, msg = register_user(r_user, r_email, r_pass)
+                if success:
+                    st.success(msg + " You can now log in.")
+                else:
+                    st.error(msg)
+            else:
+                st.warning("Please fill in all registration fields.")
+
+    # Stop execution here if not logged in!
+    st.stop()
+
+# ==============================================================================
+# AUTHENTICATED USER SESSION (APPLICATION UNLOCKED)
+# ==============================================================================
+user_name_str = st.session_state["auth_user"]["username"]
+st.sidebar.markdown(f'<div class="user-badge">👤 Logged in: {user_name_str}</div>', unsafe_allow_html=True)
+if st.sidebar.button("🚪 Logout", use_container_width=True):
+    st.session_state["auth_user"] = None
+    st.session_state["nav_page"] = "🏠 Home"
+    st.rerun()
 
 st.sidebar.markdown("---")
 
-# Sidebar Page Navigation
+# Sidebar Page Navigation (UNLOCKED AFTER LOGIN)
 nav_options = [
     "🏠 Home",
     "📂 File Analyzer",
     "🤖 AI & ML Intelligence Engine",
     "💻 System Information",
     "📜 Database History Log",
-    "🔐 Login / Register",
     "ℹ️ About"
 ]
 
@@ -79,15 +136,6 @@ page_selection = st.sidebar.radio(
 )
 
 st.session_state["nav_page"] = page_selection
-
-# Header Banner
-user_name_str = st.session_state["auth_user"]["username"] if st.session_state["auth_user"] else "Guest"
-st.markdown(f"""
-<div class="app-header">
-    <div class="app-title">📁 Smart File Analyzer</div>
-    <div class="app-subtitle">Multi-File Processing • SHA-256 Hashing • AI Insights • Complex ML • System Telemetry</div>
-</div>
-""", unsafe_allow_html=True)
 
 # ==============================================================================
 # PAGE: HOME
@@ -161,9 +209,8 @@ elif st.session_state["nav_page"] == "📂 File Analyzer":
             df_files = analyze_uploaded_files(uploaded_files)
             st.session_state["df_analysis"] = df_files
 
-            # Automatically log to Database if logged in
-            if st.session_state["auth_user"]:
-                log_file_analysis(st.session_state["auth_user"]["username"], df_files)
+            # Automatically log to Database for authenticated user
+            log_file_analysis(st.session_state["auth_user"]["username"], df_files)
 
         if not df_files.empty:
             # Filters
@@ -345,51 +392,13 @@ elif st.session_state["nav_page"] == "💻 System Information":
 # ==============================================================================
 elif st.session_state["nav_page"] == "📜 Database History Log":
     st.title("📜 SQLite Database File Audit Logs")
-
-    if st.session_state["auth_user"]:
-        user_name = st.session_state["auth_user"]["username"]
-        st.markdown(f"Displaying persistent database records for user: **{user_name}**")
-        
-        hist_df = get_user_history(user_name)
-        if not hist_df.empty:
-            st.dataframe(hist_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No past file analysis history found in database.")
+    st.markdown(f"Displaying persistent database records for user: **{user_name_str}**")
+    
+    hist_df = get_user_history(user_name_str)
+    if not hist_df.empty:
+        st.dataframe(hist_df, use_container_width=True, hide_index=True)
     else:
-        st.warning("Please Log In via '🔐 Login / Register' page to view persistent database analysis logs.")
-
-# ==============================================================================
-# PAGE: LOGIN / REGISTER
-# ==============================================================================
-elif st.session_state["nav_page"] == "🔐 Login / Register":
-    st.title("🔐 Authentication Portal")
-
-    auth_mode = st.radio("Choose Action:", ["Login", "Register New User"], horizontal=True)
-
-    if auth_mode == "Login":
-        st.subheader("User Login")
-        l_user = st.text_input("Username:")
-        l_pass = st.text_input("Password:", type="password")
-        if st.button("🔑 Log In", type="primary"):
-            success, res = verify_user(l_user, l_pass)
-            if success:
-                st.session_state["auth_user"] = res
-                st.success(f"Welcome back, {res['username']}!")
-                st.session_state["nav_page"] = "🏠 Home"
-                st.rerun()
-            else:
-                st.error(res)
-    else:
-        st.subheader("Register New Account")
-        r_user = st.text_input("Choose Username:")
-        r_email = st.text_input("Email Address:")
-        r_pass = st.text_input("Choose Password:", type="password")
-        if st.button("📝 Register Account", type="primary"):
-            success, msg = register_user(r_user, r_email, r_pass)
-            if success:
-                st.success(msg)
-            else:
-                st.error(msg)
+        st.info("No past file analysis history found in database.")
 
 # ==============================================================================
 # PAGE: ABOUT
@@ -398,9 +407,10 @@ elif st.session_state["nav_page"] == "ℹ️ About":
     st.title("ℹ️ About Smart File Analyzer")
     st.markdown("""
     ### **Smart File Analyzer (Enterprise Edition)**
-    A functional, feature-packed Streamlit application integrating file metadata analysis, cryptographic SHA-256 duplicate detection, AI storage insights, complex Machine Learning anomaly detection, user authentication, SQLite database logging, and cloud deployment readiness.
+    A functional, feature-packed Streamlit application integrating mandatory authentication, file metadata analysis, cryptographic SHA-256 duplicate detection, AI storage insights, complex Machine Learning anomaly detection, user session management, SQLite database logging, and cloud deployment readiness.
 
     ### **Technologies Included:**
+    - **Authentication Gatekeeping**: Mandatory Login / Registration before content access
     - **UI & Themes**: Streamlit, Custom Glassmorphism CSS (Light, Dark, System Modes)
     - **Data & Charts**: Pandas, NumPy, Plotly Express
     - **Database & Auth**: SQLite3, SHA-256 Password Hashing & Audit Logs
